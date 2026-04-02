@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="GptOutlookPlugin/GptOutlookPlugin.csproj" Id="aace7a80-2255-4a04-a6be-066b7599b9d6" />
+  <Project Path="GptOutlookPlugin.Tests/GptOutlookPlugin.Tests.csproj" Id="d1f3c2a6-7b9e-4d34-8e2b-1a2b3c4d5e6f" />
 </Solution>

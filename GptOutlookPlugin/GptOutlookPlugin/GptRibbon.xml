@@ -1,0 +1,58 @@
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui">
+  <ribbon>
+    <tabs>
+      <tab id="GptTab" label="GPT Email Assistant">
+        <group id="GptMainGroup" label="AI Actions">
+          <button id="btnReview"
+                  label="Review"
+                  imageMso="SpellingMenu"
+                  size="large"
+                  onAction="OnReviewClick"
+                  screentip="Review and proofread the current email"/>
+          <button id="btnCompose"
+                  label="Compose"
+                  imageMso="MailMergeStartLetters"
+                  size="large"
+                  onAction="OnComposeClick"
+                  screentip="Draft a reply to the current email"/>
+          <button id="btnTranslate"
+                  label="Translate"
+                  imageMso="TranslateMenu"
+                  size="large"
+                  onAction="OnTranslateClick"
+                  screentip="Translate the current email"/>
+          <button id="btnSummarize"
+                  label="Summarize"
+                  imageMso="OutlineDemoteToBodyText"
+                  size="large"
+                  onAction="OnSummarizeClick"
+                  screentip="Summarize the current email"/>
+        </group>
+        <group id="GptSettingsGroup" label="Settings">
+          <button id="btnSettings"
+                  label="Settings"
+                  imageMso="AdvancedFileProperties"
+                  size="normal"
+                  onAction="OnSettingsClick"
+                  screentip="Configure AI provider and preferences"/>
+        </group>
+      </tab>
+    </tabs>
+    <contextMenus>
+      <contextMenu idMso="ContextMenuText">
+        <menuSeparator id="GptSep"/>
+        <menu id="GptContextMenu" label="GPT Assistant" imageMso="SpellingMenu">
+          <button id="ctxReview"
+                  label="Review Selection"
+                  onAction="OnContextReviewClick"/>
+          <button id="ctxTranslate"
+                  label="Translate Selection"
+                  onAction="OnContextTranslateClick"/>
+          <button id="ctxCompose"
+                  label="Compose from Selection"
+                  onAction="OnContextComposeClick"/>
+        </menu>
+      </contextMenu>
+    </contextMenus>
+  </ribbon>
+</customUI>
