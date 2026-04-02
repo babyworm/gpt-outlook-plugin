@@ -1,0 +1,48 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Compiled Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temp / build artifacts
+*.tmp
+*.temp
+*.log
+*.cache
+TestResults/
+
+# LLM plugin directories
+.omc/
+.omx/
+.rtl-agent-team/
+.rat/
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Keys (do not commit signing keys)
+*.pfx
+*.snk
