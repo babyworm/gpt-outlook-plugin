@@ -22,6 +22,7 @@ namespace GptOutlookPlugin.UI
         private readonly ComboBox _cmbLanguage;
         private readonly ComboBox _cmbTone;
         private readonly TextBox _txtCustomTone;
+        private readonly ComboBox _cmbSensitivity;
         private readonly TextBlock _txtCodexStatus;
 
         public SettingsWindow(SettingsManager settingsManager)
@@ -206,6 +207,18 @@ namespace GptOutlookPlugin.UI
             };
             root.Children.Add(_txtCustomTone);
 
+            // === Review Sensitivity ===
+            root.Children.Add(CreateSectionHeader("Review Sensitivity"));
+            _cmbSensitivity = new ComboBox
+            {
+                Padding = new Thickness(4), FontSize = 13,
+                Margin = new Thickness(0, 4, 0, 12)
+            };
+            _cmbSensitivity.Items.Add(new ComboBoxItem { Content = "Low — major issues only (문법 오류, 의미 혼동만)", Tag = "Low" });
+            _cmbSensitivity.Items.Add(new ComboBoxItem { Content = "Medium — grammar + clarity (기본값)", Tag = "Medium" });
+            _cmbSensitivity.Items.Add(new ComboBoxItem { Content = "High — all suggestions (스타일, 톤까지 모두)", Tag = "High" });
+            root.Children.Add(_cmbSensitivity);
+
             // === Buttons ===
             var btnPanel = new StackPanel
             {
@@ -255,6 +268,8 @@ namespace GptOutlookPlugin.UI
 
             SelectComboByTag(_cmbModel, s.OpenAiApi.Model);
             SelectComboByTag(_cmbLanguage, s.DefaultTranslateTarget);
+
+            SelectComboByTag(_cmbSensitivity, s.ReviewSensitivity);
 
             if (!string.IsNullOrEmpty(s.CustomTonePrompt))
             {
@@ -310,6 +325,9 @@ namespace GptOutlookPlugin.UI
                 s.OpenAiApi.Model = modelItem.Tag?.ToString() ?? "gpt-4o";
             if (_cmbLanguage.SelectedItem is ComboBoxItem langItem)
                 s.DefaultTranslateTarget = langItem.Tag?.ToString() ?? "Korean";
+
+            if (_cmbSensitivity.SelectedItem is ComboBoxItem sensItem)
+                s.ReviewSensitivity = sensItem.Tag?.ToString() ?? "Medium";
 
             if (_cmbTone.SelectedItem is ComboBoxItem toneItem)
             {

@@ -79,48 +79,31 @@ namespace GptOutlookPlugin.Core
             var inspector = _app.ActiveInspector();
             if (inspector?.CurrentItem is MailItem mail)
             {
-                mail.Body = newBody;
-            }
-        }
-
-        public void ApplyToHtmlBody(string newHtmlBody)
-        {
-            var inspector = _app.ActiveInspector();
-            if (inspector?.CurrentItem is MailItem mail)
-            {
-                mail.HTMLBody = newHtmlBody;
+                // HTML 본문이 있으면 서명 보존하면서 본문 교체
+                if (!string.IsNullOrEmpty(mail.HTMLBody) && mail.HTMLBody.Contains("<body"))
+                {
+                    InsertHtmlContent(mail, newBody);
+                }
+                else
+                {
+                    mail.Body = newBody;
+                }
             }
         }
 
         /// <summary>
-        /// Compose 결과를 이메일에 반영.
-        /// 답장: Reply 생성 후 본문 삽입 (기존 서명 유지).
-        /// 새 메일: 현재 작성 중인 메일에 본문 삽입.
-        /// subject가 있으면 제목도 설정.
+        /// Compose/AutoReply 결과를 이메일에 반영.
+        /// HTML 서명을 보존하면서 본문을 삽입.
         /// </summary>
         public void ApplyComposeDraft(string body, string subject = null)
         {
             var inspector = _app.ActiveInspector();
             if (inspector?.CurrentItem is MailItem composing)
             {
-                // 현재 작성 중인 메일에 삽입
                 if (!string.IsNullOrEmpty(subject))
                     composing.Subject = subject;
 
-                // HTML 본문이 있으면 서명 앞에 삽입, 없으면 덮어쓰기
-                if (!string.IsNullOrEmpty(composing.HTMLBody) && composing.HTMLBody.Contains("<body"))
-                {
-                    // 서명 전에 내용 삽입 (body 태그 바로 뒤)
-                    var bodyTag = composing.HTMLBody.IndexOf("<body", StringComparison.OrdinalIgnoreCase);
-                    var bodyClose = composing.HTMLBody.IndexOf(">", bodyTag) + 1;
-                    composing.HTMLBody = composing.HTMLBody.Insert(bodyClose,
-                        "<div style='font-family:Calibri,sans-serif;font-size:11pt'>"
-                        + body.Replace("\n", "<br>") + "</div><br>");
-                }
-                else
-                {
-                    composing.Body = body;
-                }
+                InsertHtmlContent(composing, body);
                 return;
             }
 
@@ -135,8 +118,7 @@ namespace GptOutlookPlugin.Core
                     if (!string.IsNullOrEmpty(subject))
                         reply.Subject = subject;
 
-                    // Reply는 이미 서명이 포함되어 있으므로 본문만 앞에 추가
-                    reply.Body = body + "\n\n" + reply.Body;
+                    InsertHtmlContent(reply, body);
                     reply.Display(false);
                 }
             }
@@ -145,6 +127,61 @@ namespace GptOutlookPlugin.Core
         public void InsertReplyDraft(string replyBody)
         {
             ApplyComposeDraft(replyBody);
+        }
+
+        /// <summary>
+        /// MailItem의 HTMLBody에 내용을 삽입.
+        /// 기존 서명과 포맷을 보존하면서 body 태그 바로 뒤에 삽입.
+        /// </summary>
+        private void InsertHtmlContent(MailItem mail, string plainText)
+        {
+            var html = mail.HTMLBody ?? "";
+            var htmlContent = "<div style='font-family:Calibri,sans-serif;font-size:11pt'>"
+                            + System.Net.WebUtility.HtmlEncode(plainText)
+                                .Replace("\n", "<br>")
+                                .Replace("  ", " &nbsp;")
+                            + "</div><br>";
+
+            if (html.Contains("<body"))
+            {
+                var bodyTag = html.IndexOf("<body", StringComparison.OrdinalIgnoreCase);
+                var bodyClose = html.IndexOf(">", bodyTag) + 1;
+
+                // 기존 본문 내용 중 서명 전까지 찾기
+                // Outlook 서명은 보통 <div id="Signature"> 또는 <div class="signature"> 등으로 시작
+                var sigPatterns = new[] {
+                    "id=\"Signature\"", "id='Signature'",
+                    "class=\"signature\"", "class='signature'",
+                    "id=\"mailSignature\"", "id=\"mail-signature\""
+                };
+
+                int sigPos = -1;
+                foreach (var pat in sigPatterns)
+                {
+                    sigPos = html.IndexOf(pat, bodyClose, StringComparison.OrdinalIgnoreCase);
+                    if (sigPos > 0)
+                    {
+                        // div 시작 태그까지 되돌아가기
+                        sigPos = html.LastIndexOf("<div", sigPos, sigPos - bodyClose, StringComparison.OrdinalIgnoreCase);
+                        break;
+                    }
+                }
+
+                if (sigPos > 0)
+                {
+                    // 서명 바로 앞에 삽입
+                    mail.HTMLBody = html.Insert(sigPos, htmlContent);
+                }
+                else
+                {
+                    // 서명을 못 찾으면 body 태그 바로 뒤에 삽입
+                    mail.HTMLBody = html.Insert(bodyClose, htmlContent);
+                }
+            }
+            else
+            {
+                mail.Body = plainText;
+            }
         }
 
         /// <summary>

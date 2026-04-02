@@ -45,11 +45,29 @@ namespace GptOutlookPlugin.UI
             };
             modeLabel.SetBinding(TextBlock.TextProperty, new Binding("ModeDisplayName"));
 
+            var headerBtnPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+
+            var rerunBtn = new Button
+            {
+                Content = "\u21BB Rerun",
+                Padding = new Thickness(8, 3, 8, 3),
+                Margin = new Thickness(0, 0, 4, 0),
+                FontSize = 11,
+                Background = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromArgb(80, 255, 255, 255)),
+                Cursor = Cursors.Hand
+            };
+            rerunBtn.SetBinding(Button.CommandProperty, new Binding("RerunCommand"));
+
             var clearBtn = new Button
             {
                 Content = "Clear",
-                HorizontalAlignment = HorizontalAlignment.Right,
-                Padding = new Thickness(10, 3, 10, 3),
+                Padding = new Thickness(8, 3, 8, 3),
                 FontSize = 11,
                 Background = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
                 Foreground = Brushes.White,
@@ -58,8 +76,11 @@ namespace GptOutlookPlugin.UI
             };
             clearBtn.SetBinding(Button.CommandProperty, new Binding("ClearCommand"));
 
+            headerBtnPanel.Children.Add(rerunBtn);
+            headerBtnPanel.Children.Add(clearBtn);
+
             headerGrid.Children.Add(modeLabel);
-            headerGrid.Children.Add(clearBtn);
+            headerGrid.Children.Add(headerBtnPanel);
             header.Child = headerGrid;
             Grid.SetRow(header, 0);
             rootGrid.Children.Add(header);
@@ -208,6 +229,13 @@ namespace GptOutlookPlugin.UI
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            // ReviewCorrectionViewModel 인 경우 교정 카드 렌더링
+            if (DataContext is ReviewCorrectionViewModel rcvm)
+            {
+                RenderCorrectionCard(rcvm);
+                return;
+            }
+
             var msg = DataContext as ChatMessageViewModel;
             if (msg == null) return;
 
@@ -319,6 +347,165 @@ namespace GptOutlookPlugin.UI
             }
 
             Child = panel;
+        }
+
+        private void RenderCorrectionCard(ReviewCorrectionViewModel rcvm)
+        {
+            CornerRadius = new CornerRadius(8);
+            Margin = new Thickness(8, 4, 8, 4);
+            Padding = new Thickness(0);
+            BorderBrush = new SolidColorBrush(Color.FromRgb(200, 210, 230));
+            BorderThickness = new Thickness(1);
+            Background = Brushes.White;
+            MaxWidth = 340;
+            HorizontalAlignment = HorizontalAlignment.Left;
+
+            var card = new StackPanel();
+
+            // 삭제 영역 (원문)
+            var origBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(255, 240, 240)),
+                Padding = new Thickness(10, 6, 10, 6)
+            };
+            var origStack = new StackPanel();
+            origStack.Children.Add(new TextBlock
+            {
+                Text = "Original",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromRgb(160, 80, 80)),
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 0, 0, 2)
+            });
+            origStack.Children.Add(new TextBlock
+            {
+                Text = rcvm.OriginalSnippet,
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromRgb(140, 40, 40))
+            });
+            origBorder.Child = origStack;
+            card.Children.Add(origBorder);
+
+            // 교정문 영역
+            var corrBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(235, 255, 240)),
+                Padding = new Thickness(10, 6, 10, 6)
+            };
+            var corrStack = new StackPanel();
+            corrStack.Children.Add(new TextBlock
+            {
+                Text = "Corrected",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromRgb(30, 120, 50)),
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 0, 0, 2)
+            });
+            corrStack.Children.Add(new TextBlock
+            {
+                Text = rcvm.CorrectedSnippet,
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromRgb(20, 130, 40))
+            });
+            corrBorder.Child = corrStack;
+            card.Children.Add(corrBorder);
+
+            // 이유
+            var reasonBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(248, 248, 248)),
+                Padding = new Thickness(10, 4, 10, 4),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(230, 230, 230)),
+                BorderThickness = new Thickness(0, 1, 0, 0)
+            };
+            reasonBorder.Child = new TextBlock
+            {
+                Text = rcvm.ReasonText,
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 11,
+                FontStyle = FontStyles.Italic,
+                Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100))
+            };
+            card.Children.Add(reasonBorder);
+
+            // Accept / Skip 버튼
+            var btnBar = new Border
+            {
+                Padding = new Thickness(8, 6, 8, 6),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(230, 230, 230)),
+                BorderThickness = new Thickness(0, 1, 0, 0)
+            };
+            var btnPanel = new StackPanel { Orientation = Orientation.Horizontal };
+
+            var acceptBtn = new Button
+            {
+                Content = "\u2713 Accept",
+                Padding = new Thickness(10, 3, 10, 3),
+                FontSize = 11,
+                Background = new SolidColorBrush(Color.FromRgb(230, 248, 235)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(40, 160, 60)),
+                BorderThickness = new Thickness(1),
+                Foreground = new SolidColorBrush(Color.FromRgb(20, 130, 40)),
+                Cursor = Cursors.Hand,
+                Tag = rcvm
+            };
+            acceptBtn.Click += AcceptCorrection_Click;
+
+            var skipBtn = new Button
+            {
+                Content = "\u2717 Skip",
+                Padding = new Thickness(10, 3, 10, 3),
+                Margin = new Thickness(6, 0, 0, 0),
+                FontSize = 11,
+                Background = new SolidColorBrush(Color.FromRgb(245, 245, 245)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(180, 180, 180)),
+                BorderThickness = new Thickness(1),
+                Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
+                Cursor = Cursors.Hand,
+                Tag = rcvm
+            };
+            skipBtn.Click += SkipCorrection_Click;
+
+            btnPanel.Children.Add(acceptBtn);
+            btnPanel.Children.Add(skipBtn);
+            btnBar.Child = btnPanel;
+            card.Children.Add(btnBar);
+
+            Child = card;
+        }
+
+        private void AcceptCorrection_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is ReviewCorrectionViewModel rcvm)
+            {
+                var element = this as FrameworkElement;
+                while (element != null)
+                {
+                    if (element is ChatTaskPane pane && pane.DataContext is ChatTaskPaneViewModel vm)
+                    {
+                        vm.ApplyCorrection(rcvm.Correction);
+                        // 카드를 "적용됨" 상태로 변경
+                        Background = new SolidColorBrush(Color.FromRgb(235, 248, 240));
+                        Opacity = 0.7;
+                        IsEnabled = false;
+                        break;
+                    }
+                    element = VisualTreeHelper.GetParent(element) as FrameworkElement;
+                }
+            }
+        }
+
+        private void SkipCorrection_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is ReviewCorrectionViewModel rcvm)
+            {
+                rcvm.Correction.Skipped = true;
+                Background = new SolidColorBrush(Color.FromRgb(245, 245, 245));
+                Opacity = 0.5;
+                IsEnabled = false;
+            }
         }
 
         private void CopyButton_Click(object sender, RoutedEventArgs e)

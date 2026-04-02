@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -36,7 +37,7 @@ namespace GptOutlookPlugin.UI
             set { _isLoading = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanSend)); }
         }
 
-        private FeatureMode _currentMode = FeatureMode.Review;
+        private FeatureMode _currentMode = FeatureMode.Proofread;
         public FeatureMode CurrentMode
         {
             get => _currentMode;
@@ -49,7 +50,8 @@ namespace GptOutlookPlugin.UI
             {
                 switch (CurrentMode)
                 {
-                    case FeatureMode.Review: return "Review / Proofread";
+                    case FeatureMode.Rewrite: return "Rewrite";
+                    case FeatureMode.Proofread: return "Proofread";
                     case FeatureMode.Compose: return "Compose";
                     case FeatureMode.AutoReply: return "Auto Reply";
                     case FeatureMode.Translate: return "Translate";
@@ -70,11 +72,13 @@ namespace GptOutlookPlugin.UI
 
         public ICommand SendCommand { get; }
         public ICommand ClearCommand { get; }
+        public ICommand RerunCommand { get; }
 
         private string _userLanguage = "Korean";
         private string _userName = "";
         private string _userEmail = "";
         private string _tone = "Professional and polite";
+        private string _reviewSensitivity = "Medium";
 
         public ChatTaskPaneViewModel(ContextManager contextManager, AiServiceManager aiService, OutlookInterop outlook)
         {
@@ -84,6 +88,7 @@ namespace GptOutlookPlugin.UI
 
             SendCommand = new RelayCommand(async _ => await SendMessageAsync(), _ => CanSend);
             ClearCommand = new RelayCommand(_ => ClearConversation());
+            RerunCommand = new RelayCommand(async _ => await RerunAsync(), _ => !IsLoading);
 
             _aiService.OnProviderSwitch += msg => StatusText = msg;
 
@@ -99,6 +104,51 @@ namespace GptOutlookPlugin.UI
         public void UpdateTone(string tone)
         {
             _tone = tone;
+        }
+
+        public void UpdateSensitivity(string sensitivity)
+        {
+            _reviewSensitivity = sensitivity;
+        }
+
+        /// <summary>
+        /// 현재 모드를 세션 초기화 후 재실행.
+        /// Translate에서 언어를 바꿔서 다시 실행할 때도 사용.
+        /// </summary>
+        public async Task RerunAsync(string overrideLanguage = null)
+        {
+            if (_currentSession == null) return;
+            if (overrideLanguage != null)
+                _userLanguage = overrideLanguage;
+
+            _contextManager.ClearSession(_currentSession.SessionKey);
+            var emailKey = _outlook.GetCurrentEntryIdOrTemp();
+            _currentSession = _contextManager.GetOrCreateSession(emailKey, CurrentMode);
+            _currentSession.EmailContext = _outlook.GetCurrentEmailContext();
+            Messages.Clear();
+            await SendAutoPromptAsync(CurrentMode);
+        }
+
+        /// <summary>
+        /// Review 응답에서 개별 교정 항목을 이메일에 적용.
+        /// </summary>
+        public void ApplyCorrection(ReviewCorrection correction)
+        {
+            if (_currentSession?.EmailContext == null) return;
+
+            var body = _currentSession.EmailContext.Body;
+            if (body.Contains(correction.Original))
+            {
+                var newBody = body.Replace(correction.Original, correction.Corrected);
+                _outlook.ApplyToBody(newBody);
+                _currentSession.EmailContext.Body = newBody;
+                correction.Accepted = true;
+                StatusText = "Correction applied.";
+            }
+            else
+            {
+                StatusText = "Original text not found in email body.";
+            }
         }
 
         public void StartMode(FeatureMode mode, string initialPrompt = null)
@@ -162,8 +212,11 @@ namespace GptOutlookPlugin.UI
             string prompt;
             switch (mode)
             {
-                case FeatureMode.Review:
-                    prompt = "이 이메일을 리뷰하고 교정해 주세요.";
+                case FeatureMode.Rewrite:
+                    prompt = "이 이메일을 다시 작성해 주세요. 자연스러운 버전과 비즈니스 버전 두 가지로.";
+                    break;
+                case FeatureMode.Proofread:
+                    prompt = "이 이메일을 교정해 주세요.";
                     break;
                 case FeatureMode.Translate:
                     prompt = $"이 이메일을 {_userLanguage}로 번역해 주세요. 번역문만 출력하세요.";
@@ -212,7 +265,7 @@ namespace GptOutlookPlugin.UI
             try
             {
                 var allMessages = _contextManager.BuildMessages(
-                    _currentSession, _userLanguage, _userLanguage, _userName, _userEmail, _tone);
+                    _currentSession, _userLanguage, _userLanguage, _userName, _userEmail, _tone, _reviewSensitivity);
                 var response = await Task.Run(() =>
                     _aiService.SendAsync(allMessages, CancellationToken.None));
 
@@ -220,10 +273,33 @@ namespace GptOutlookPlugin.UI
                 {
                     _currentSession.AddMessage(ChatRole.Assistant, response);
 
-                    var showDiff = CurrentMode == FeatureMode.Review;
+                    // Review 모드: 구조화된 교정 항목 파싱 시도
+                    if (CurrentMode == FeatureMode.Proofread)
+                    {
+                        var corrections = ReviewParser.Parse(response);
+                        if (corrections != null)
+                        {
+                            if (corrections.Count == 0)
+                            {
+                                Messages.Add(new ChatMessageViewModel(ChatRole.Assistant,
+                                    "No issues found! The email looks good.",
+                                    mode: CurrentMode));
+                            }
+                            else
+                            {
+                                Messages.Add(new ChatMessageViewModel(ChatRole.Assistant,
+                                    $"{corrections.Count}개의 교정 항목을 찾았습니다:",
+                                    mode: CurrentMode));
+                                foreach (var c in corrections)
+                                    Messages.Add(new ReviewCorrectionViewModel(c));
+                            }
+                            StatusText = "Ready";
+                            return;
+                        }
+                    }
+
+                    // 기본: 일반 메시지로 표시
                     Messages.Add(new ChatMessageViewModel(ChatRole.Assistant, response,
-                        showDiff: showDiff,
-                        originalText: _currentSession.EmailContext?.Body,
                         mode: CurrentMode));
 
                     StatusText = "Ready";
@@ -247,7 +323,8 @@ namespace GptOutlookPlugin.UI
         {
             switch (CurrentMode)
             {
-                case FeatureMode.Review:
+                case FeatureMode.Rewrite:
+                case FeatureMode.Proofread:
                 case FeatureMode.Translate:
                     _outlook.ApplyToBody(resultText);
                     StatusText = "Applied to email body.";
@@ -315,7 +392,7 @@ namespace GptOutlookPlugin.UI
         /// Apply 버튼: Compose/AutoReply/Review에서만 표시
         /// </summary>
         public bool ShowApplyButton => IsAssistant && !IsError
-            && (Mode == FeatureMode.Compose || Mode == FeatureMode.AutoReply || Mode == FeatureMode.Review);
+            && (Mode == FeatureMode.Compose || Mode == FeatureMode.AutoReply || Mode == FeatureMode.Rewrite || Mode == FeatureMode.Proofread);
 
         /// <summary>
         /// Copy 버튼: Translate/Summarize에서 표시
@@ -324,13 +401,32 @@ namespace GptOutlookPlugin.UI
             && (Mode == FeatureMode.Translate || Mode == FeatureMode.Summarize);
 
         public ChatMessageViewModel(ChatRole role, string content, bool showDiff = false,
-            string originalText = null, FeatureMode mode = FeatureMode.Review)
+            string originalText = null, FeatureMode mode = FeatureMode.Proofread)
         {
             Role = role;
             Content = content;
             ShowDiff = showDiff;
             OriginalText = originalText;
             Mode = mode;
+        }
+    }
+
+    /// <summary>
+    /// Review 모드의 개별 교정 항목을 나타내는 ViewModel.
+    /// ChatMessageBubble에서 이 타입을 감지하여 교정 카드 UI를 표시.
+    /// </summary>
+    public class ReviewCorrectionViewModel : ChatMessageViewModel
+    {
+        public ReviewCorrection Correction { get; }
+        public string OriginalSnippet => Correction.Original;
+        public string CorrectedSnippet => Correction.Corrected;
+        public string ReasonText => Correction.Reason;
+        public bool IsHandled => Correction.Accepted || Correction.Skipped;
+
+        public ReviewCorrectionViewModel(ReviewCorrection correction)
+            : base(ChatRole.Assistant, "", mode: FeatureMode.Proofread)
+        {
+            Correction = correction;
         }
     }
 

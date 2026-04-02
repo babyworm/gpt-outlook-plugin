@@ -84,8 +84,12 @@ namespace GptOutlookPlugin
                     var s = _settingsManager.Current;
                     var tone = !string.IsNullOrEmpty(s.CustomTonePrompt) ? s.CustomTonePrompt : s.DefaultTone;
                     _explorerViewModel.UpdateTone(tone);
+                    _explorerViewModel.UpdateSensitivity(s.ReviewSensitivity);
                     foreach (var vm in _inspectorViewModels.Values)
+                    {
                         vm.UpdateTone(tone);
+                        vm.UpdateSensitivity(s.ReviewSensitivity);
+                    }
                 }
             };
         }

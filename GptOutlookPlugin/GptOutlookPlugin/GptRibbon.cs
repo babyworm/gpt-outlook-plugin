@@ -23,8 +23,10 @@ namespace GptOutlookPlugin
     <tabs>
       <tab id=""GptTab"" label=""GPT Email Assistant"">
         <group id=""GptMainGroup"" label=""AI Actions"">
-          <button id=""btnReview"" label=""Review"" imageMso=""ReviewTrackChanges"" size=""large""
-                  onAction=""OnReviewClick"" screentip=""Review and proofread the current email""/>
+          <button id=""btnRewrite"" label=""Rewrite"" imageMso=""ReviewTrackChanges"" size=""large""
+                  onAction=""OnRewriteClick"" screentip=""Rewrite email in natural and business versions""/>
+          <button id=""btnProofread"" label=""Proofread"" imageMso=""SpellingMenu"" size=""large""
+                  onAction=""OnProofreadClick"" screentip=""Proofread with per-item accept/skip""/>
           <button id=""btnCompose"" label=""Compose"" imageMso=""NewMailMessage"" size=""large""
                   onAction=""OnComposeClick"" screentip=""Write a new email with guidance""/>
           <button id=""btnAutoReply"" label=""Auto Reply"" imageMso=""Reply"" size=""large""
@@ -49,9 +51,14 @@ namespace GptOutlookPlugin
             _ribbon = ribbonUI;
         }
 
-        public void OnReviewClick(IRibbonControl control)
+        public void OnRewriteClick(IRibbonControl control)
         {
-            OnModeRequested?.Invoke(FeatureMode.Review);
+            OnModeRequested?.Invoke(FeatureMode.Rewrite);
+        }
+
+        public void OnProofreadClick(IRibbonControl control)
+        {
+            OnModeRequested?.Invoke(FeatureMode.Proofread);
         }
 
         public void OnComposeClick(IRibbonControl control)
@@ -83,7 +90,7 @@ namespace GptOutlookPlugin
         {
             var selection = Globals.ThisAddIn.OutlookInterop.GetSelectedText();
             if (!string.IsNullOrEmpty(selection))
-                OnSelectionModeRequested?.Invoke(FeatureMode.Review, selection);
+                OnSelectionModeRequested?.Invoke(FeatureMode.Proofread, selection);
         }
 
         public void OnContextTranslateClick(IRibbonControl control)

@@ -38,7 +38,8 @@ namespace GptOutlookPlugin.Core
         public List<ChatMessage> BuildMessages(ConversationSession session,
             string targetLanguage = "Korean", string userLanguage = "Korean",
             string userName = "", string userEmail = "",
-            string tone = "Professional and polite")
+            string tone = "Professional and polite",
+            string reviewSensitivity = "Medium")
         {
             var messages = new List<ChatMessage>();
 
@@ -49,7 +50,8 @@ namespace GptOutlookPlugin.Core
                 userLanguage,
                 userName,
                 userEmail,
-                tone);
+                tone,
+                reviewSensitivity);
             messages.Add(new ChatMessage(ChatRole.System, systemPrompt));
 
             messages.AddRange(session.Messages);

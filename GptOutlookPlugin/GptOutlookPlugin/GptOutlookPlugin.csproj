@@ -212,6 +212,8 @@
     <Compile Include="Core\SettingsManager.cs" />
     <Compile Include="Core\OutlookInterop.cs" />
     <Compile Include="Core\DiffEngine.cs" />
+    <Compile Include="Core\ReviewParser.cs" />
+    <Compile Include="Models\ReviewCorrection.cs" />
     <!-- Services -->
     <Compile Include="Services\IAiProvider.cs" />
     <Compile Include="Services\CodexCliProvider.cs" />

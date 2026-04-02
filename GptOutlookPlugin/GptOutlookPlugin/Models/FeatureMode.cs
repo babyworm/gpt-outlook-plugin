@@ -2,7 +2,8 @@ namespace GptOutlookPlugin.Models
 {
     public enum FeatureMode
     {
-        Review,
+        Rewrite,
+        Proofread,
         Compose,
         AutoReply,
         Translate,

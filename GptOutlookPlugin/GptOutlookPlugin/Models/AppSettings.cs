@@ -9,6 +9,7 @@ namespace GptOutlookPlugin.Models
         public string DefaultTranslateTarget { get; set; } = "Korean";
         public string DefaultTone { get; set; } = "Professional and polite";
         public string CustomTonePrompt { get; set; } = "";
+        public string ReviewSensitivity { get; set; } = "Medium";
     }
 
     public class CodexCliSettings
